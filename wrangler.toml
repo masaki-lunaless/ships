@@ -1,0 +1,35 @@
+name = "recore-shipco-hub"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Bindings -------------------------------------------------------------
+# 1) wrangler d1 create recore-shipco-hub  → database_id をここに貼る
+# 2) wrangler kv namespace create KV      → id をここに貼る
+[[d1_databases]]
+binding = "DB"
+database_name = "recore-shipco-hub"
+database_id = "REPLACE_ME"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_ME"
+
+# 5分ごとに未完了ジョブの再試行・掃除
+[triggers]
+crons = ["*/5 * * * *"]
+
+# --- Vars (非秘密) ----------------------------------------------------------
+[vars]
+RECORE_BASE_URL = "https://co-api.recore-pos.com"
+SHIPANDCO_BASE_URL = "https://api.shipandco.com/v1"
+# true にすると Ship&co にテストラベル（課金なし）を発行する
+SHIPANDCO_TEST_MODE = "true"
+# 自動発行の対象外にするモールID（カンマ区切り）。らくらくメルカリ便運用ならここに入れる
+EXCLUDED_MALL_IDS = "MERCARI_SHOPS"
+
+# --- Secrets（wrangler secret put <NAME> で登録。.dev.vars.example 参照） ---
+# RECORE_API_KEY        RECORE co-api の APIキー
+# SHIPANDCO_API_TOKEN   Ship&co ダッシュボードで発行したトークン
+# WEBHOOK_SECRET        RECORE Webhook の受信URLに埋め込むパス用トークン
+# ADMIN_TOKEN           管理API／プリントエージェント用 Bearer トークン
