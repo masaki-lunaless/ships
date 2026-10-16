@@ -54,11 +54,19 @@ export type ScShipmentResponse = {
 };
 
 async function call<T>(env: Env, method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${env.SHIPANDCO_BASE_URL}${path}`, {
-    method,
-    headers: { "x-access-token": env.SHIPANDCO_API_TOKEN, "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${env.SHIPANDCO_BASE_URL}${path}`, {
+      method,
+      headers: { "x-access-token": env.SHIPANDCO_API_TOKEN, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (e) {
+    const msg = `Ship&co network error on ${path}: ${e instanceof Error ? e.message : e}`;
+    // POST /shipments は送信済みかもしれないので自動再試行しない（ref_number で突合してから手動で）
+    if (method === "GET") throw new RetryableError(msg);
+    throw new Error(msg);
+  }
   if (res.status === 429 || res.status === 503) throw new RetryableError(`Ship&co ${res.status} on ${path}`);
   const text = await res.text();
   if (!res.ok) throw new Error(`Ship&co ${res.status} on ${path}: ${text.slice(0, 800)}`);

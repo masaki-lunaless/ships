@@ -61,12 +61,18 @@ async function call<T>(env: Env, method: string, path: string, body?: unknown, s
     "Content-Type": "application/json",
   };
   if (storeId) headers["X-Store-Id"] = String(storeId);
-  const res = await fetch(`${env.RECORE_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (res.status === 429) throw new RetryableError(`RECORE 429 on ${path}`);
+  let res: Response;
+  try {
+    res = await fetch(`${env.RECORE_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new RetryableError(`RECORE network error on ${path}: ${e instanceof Error ? e.message : e}`);
+  }
+  // 出荷登録の二重実行は jobs 側で fulfillments を見て防いでいるので 5xx も再試行してよい
+  if (res.status === 429 || res.status >= 500) throw new RetryableError(`RECORE ${res.status} on ${path}`);
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`RECORE ${res.status} on ${path}: ${text.slice(0, 500)}`);
