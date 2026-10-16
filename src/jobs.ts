@@ -207,6 +207,10 @@ async function stageIssued(env: Env, job: Job): Promise<void> {
     }
   } else {
     const bc: RecoreBadCase = await recore.getBadCase(env, job.source_id);
+    // 再試行時の二重追記を避けるため、メモに番号が無いときだけ足す
+    if (!(bc.note ?? "").includes(job.tracking_no)) {
+      await recore.appendBadCaseNote(env, bc, `返送 ${job.carrier_type ?? ""} ${job.tracking_no}`.replace(/\s+/g, " "));
+    }
     if (bc.return_status !== "RETURNED") await recore.setBadReturned(env, job.source_id);
   }
   await step(env, job, "issued", { status: "written_back" });

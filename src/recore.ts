@@ -51,6 +51,7 @@ export type RecoreBadCase = {
   address2: string | null;
   tel: string | null;
   email: string | null;
+  note: string | null; // ケースメモ
   goods: Array<{ id: number; product_id: number; quantity: number; is_canceled: boolean }>;
 };
 
@@ -112,9 +113,9 @@ export const recore = {
   setBadReturned: (env: Env, id: number) =>
     call<RecoreBadCase>(env, "PUT", `/bad_cases/${id}/return_status`, { return_status: "RETURNED" }),
 
-  /** ケースメモに追跡番号を残す（返送ステータスには番号欄がないため） */
+  /** ケースメモに追記する（返送ステータスには番号欄がないため）。PUT は上書きなので既存メモに足して送る */
   appendBadCaseNote: async (env: Env, bc: RecoreBadCase, line: string) =>
-    call<RecoreBadCase>(env, "PUT", `/bad_cases/${bc.id}`, { note: line }),
+    call<RecoreBadCase>(env, "PUT", `/bad_cases/${bc.id}`, { note: bc.note ? `${bc.note}\n${line}` : line }),
 
   registerWebhook: (env: Env, address: string, topics: string[]) =>
     call<{ id: string }>(env, "POST", "/webhooks", { address, topics }),

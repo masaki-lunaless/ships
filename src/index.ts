@@ -36,9 +36,9 @@ app.post("/webhooks/recore/:secret", async (c) => {
   } catch {
     return c.json({ ok: true, ignored: "invalid json" });
   }
-  // ペイロード形は { topic, data } / ヘッダ指定 の両方に耐える。どちらにせよ処理時に RECORE から取り直す
-  const topic: string = body.topic ?? c.req.header("X-ReCORE-Topic") ?? "";
-  const data: AnyObj = body.data ?? body.payload ?? body;
+  // トピックはヘッダ、body は対応する取得APIのレスポンスと同形（受注 / 宅配買取ケースそのもの）
+  const topic = c.req.header("X-ReCORE-Topic") ?? body.topic ?? "";
+  const data: AnyObj = body;
 
   const messageId = c.req.header("X-ReCORE-Message-ID");
   if (messageId) {
@@ -49,17 +49,17 @@ app.post("/webhooks/recore/:secret", async (c) => {
   }
 
   if (topic === "ec.order.status.changed") {
-    const id = Number(data.id ?? data.ec_order_id ?? data.ec_order?.id);
+    const id = Number(data.id);
     if (!id) return c.json({ ok: true, ignored: "no order id" });
-    const status: string | undefined = data.status ?? data.ec_order?.status;
-    const mallId: string | undefined = data.ec_account?.mall_id ?? data.ec_order?.ec_account?.mall_id;
+    const status: string | undefined = data.status;
+    const mallId: string | undefined = data.ec_account?.mall_id;
 
     if (status === "CANCELED") {
       const job = await findJob(c.env, "ec_order", id);
       if (job) bg(c, cancelJob(c.env, job));
       return c.json({ ok: true, action: job ? "cancel" : "none" });
     }
-    // status 不明のペイロードでもジョブ化して processJob 側で判定する
+    // 配信順は前後しうるので、最終判断は processJob で受注を取り直して行う
     if (status && status !== "UNSHIPPED") return c.json({ ok: true, ignored: `status=${status}` });
     if (mallId && excludedMalls(c.env).includes(mallId)) return c.json({ ok: true, ignored: `excluded ${mallId}` });
 
@@ -69,11 +69,11 @@ app.post("/webhooks/recore/:secret", async (c) => {
   }
 
   if (topic === "bad.return_status.changed") {
-    const id = Number(data.id ?? data.bad_case_id ?? data.bad_case?.id);
+    const id = Number(data.id);
     if (!id) return c.json({ ok: true, ignored: "no bad_case id" });
-    const rs: string | undefined = data.return_status ?? data.bad_case?.return_status;
+    const rs: string | undefined = data.return_status;
     if (rs && rs !== "REQUIRED") return c.json({ ok: true, ignored: `return_status=${rs}` });
-    const storeId = Number(data.store?.id ?? data.store_id) || null;
+    const storeId = Number(data.store?.id) || null;
     const job = await enqueueJob(c.env, "bad_return", id, { store_id: storeId });
     if (job.status === "queued") bg(c, processJob(c.env, job.id));
     return c.json({ ok: true, job_id: job.id, status: job.status });

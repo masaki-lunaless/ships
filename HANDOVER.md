@@ -22,7 +22,9 @@
   `GET /api/print-queue/:id/label`（ラベルPDFの中継。URL/base64両対応）、`POST /api/print-queue/:id/reprint`、`GET /api/print-queue/list`、`GET /`（確認画面）。
 - `src/scheduled.ts` … queued/issuing/issued/written_back で2分以上停滞・attempts<5 を直列再処理。7日超の done/skipped と webhook_events を掃除。
 - `agent/print-agent.mjs` … 使い方はファイル冒頭。`DRY_RUN=1` で印刷せずPDF保存。
-- 未着手: Shopify `shipping_lines` → 受注属性 `shipping_method` アダプタ。RECORE Webhook の実ペイロード形の確認（現状は `{topic,data}` とヘッダ両対応、処理時にAPIから取り直す）。
+- Webhook は仕様どおり トピック=ヘッダ `X-ReCORE-Topic`、body=取得APIと同形（受注 / 宅配買取ケース本体）。配信順が前後しうるので処理時に必ず取り直す。
+- 宅配買取の返送は ケースメモ（note）に「返送 <carrier> <追跡番号>」を追記してから RETURNED に更新（PUT は上書きなので既存メモに連結）。
+- 未着手: Shopify `shipping_lines` → 受注属性 `shipping_method` アダプタ。
 
 ## これから（この順で）
 1. `src/jobs.ts` … ジョブ処理パイプライン
